@@ -95,8 +95,7 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 				for (byte n = 0; n < 3; n++)
 					scan.next();
 
-				str = scan.next();
-				prod[2] = Byte.parseByte(str.substring(0, str.length() - 1));
+				prod[2] = scan.next();
 
 				scan.nextLine();
 				data.add(prod);
@@ -111,7 +110,6 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 
 	@Override
 	public void insertUpdate(DocumentEvent e) {
-		System.out.println("Parsing...");
 		Document doc = e.getDocument();
 		try {
 			Elements els = Jsoup.parse(doc.getText(0, doc.getLength())).getElementsByAttribute("data-product-id");
@@ -121,13 +119,11 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 				for (short r = 0; r < model.data.length; r++)
 					if ((long) model.data[r][0] == tarId) {
 						model.data[r][1] = "█ " + (String) model.data[r][1];
-						model.data[r][2] = disEls.size() > 0 ? Byte.parseByte(disEls.get(0).text()) : 0;
+						model.data[r][2] = disEls.size() > 0 ? disEls.get(0).text() + '%' : "0%";
 						model.fireTableRowsUpdated(r, r);
-						System.out.print('.');
 						return;
 					}
 			});
-			System.out.println();
 		} catch (BadLocationException e1) {
 			e1.printStackTrace();
 		}
