@@ -17,8 +17,14 @@ import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.filechooser.FileSystemView;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumnModel;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
+
+import org.jsoup.Jsoup;
+import org.jsoup.select.Elements;
 
 /**
  * Handles entire program execution.
@@ -30,7 +36,7 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 
 	private static final long serialVersionUID = 1L;
 
-	private final JTextArea pasteArea = new JTextArea(45, 80);
+	private final JTextArea pasteArea = new JTextArea("Paste Wishlist source code here.", 45, 30);
 	private final TableModel model = new TableModel();
 
 	/**
@@ -41,17 +47,21 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new FlowLayout());
 		addWindowFocusListener(this);
-		pasteArea.setText("Paste Wishlist source code here.");
+
 		pasteArea.getDocument().addDocumentListener(this);
 		add(new JScrollPane(pasteArea));
+
 		JTable table = new JTable(model);
 		TableColumnModel tcm = table.getColumnModel();
-		tcm.getColumn(0).setPreferredWidth(350);
+		tcm.getColumn(0).setPreferredWidth(900);
 		tcm.getColumn(1).setPreferredWidth(1);
+		table.setRowSelectionAllowed(false);
 		table.setColumnSelectionAllowed(true);
+
 		JScrollPane tablePane = new JScrollPane(table);
-		tablePane.setPreferredSize(new Dimension(450, 700));
+		tablePane.setPreferredSize(new Dimension(990, pasteArea.getPreferredSize().height));
 		add(tablePane);
+
 		pack();
 	}
 
@@ -60,29 +70,38 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 	 */
 	private final void start() {
 		setVisible(true);
-		JFileChooser jfc = new JFileChooser(System.getProperty("user.home") + "/Downloads");
+
+		JFileChooser jfc = new JFileChooser(
+				FileSystemView.getFileSystemView().getDefaultDirectory().getAbsolutePath() + "/../Downloads");
 		jfc.setDialogTitle("Open Sales TSV");
 		jfc.setFileFilter(new FileNameExtensionFilter("Tab Seperated Value (tsv) file", "tsv"));
+
 		if (jfc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
 			dispose();
 			return;
 		}
+
 		try {
 			Scanner scan = new Scanner(jfc.getSelectedFile()).useDelimiter("\t");
 			scan.nextLine();
+
 			ArrayList<Object[]> data = new ArrayList<>();
 			while (scan.hasNext()) {
 				Object[] prod = new Object[3];
 				String str = scan.next();
+
 				prod[0] = Long.parseLong(str.substring(str.lastIndexOf('/') + 1, str.lastIndexOf('.')));
 				prod[1] = scan.next();
 				for (byte n = 0; n < 3; n++)
 					scan.next();
+
 				str = scan.next();
 				prod[2] = Byte.parseByte(str.substring(0, str.length() - 1));
+
 				scan.nextLine();
 				data.add(prod);
 			}
+
 			scan.close();
 			model.setData(data.toArray(new Object[data.size()][]));
 		} catch (FileNotFoundException e) {
@@ -92,7 +111,26 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 
 	@Override
 	public void insertUpdate(DocumentEvent e) {
-		// TODO Parse doc.
+		System.out.println("Parsing...");
+		Document doc = e.getDocument();
+		try {
+			Elements els = Jsoup.parse(doc.getText(0, doc.getLength())).getElementsByAttribute("data-product-id");
+			els.forEach(el -> {
+				Elements disEls = el.getElementsByClass("product-discount");
+				long tarId = Long.parseLong(el.attr("data-product-id"));
+				for (short r = 0; r < model.data.length; r++)
+					if ((long) model.data[r][0] == tarId) {
+						model.data[r][1] = "█ " + (String) model.data[r][1];
+						model.data[r][2] = disEls.size() > 0 ? Byte.parseByte(disEls.get(0).text()) : 0;
+						model.fireTableRowsUpdated(r, r);
+						System.out.print('.');
+						return;
+					}
+			});
+			System.out.println();
+		} catch (BadLocationException e1) {
+			e1.printStackTrace();
+		}
 	}
 
 	@Override
