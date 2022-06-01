@@ -32,7 +32,7 @@ import org.jsoup.select.Elements;
  * @author Nickolas S. Bradham
  *
  */
-final class Updater extends JFrame implements DocumentListener, WindowFocusListener {
+public final class Updater extends JFrame implements DocumentListener, WindowFocusListener {
 
 	private static final long serialVersionUID = 1L;
 
