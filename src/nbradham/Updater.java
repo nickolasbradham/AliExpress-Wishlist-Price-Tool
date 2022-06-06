@@ -4,11 +4,8 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Scanner;
 
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -16,8 +13,6 @@ import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.filechooser.FileSystemView;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumnModel;
 import javax.swing.text.BadLocationException;
@@ -43,7 +38,7 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 	 * Constructs the GUI.
 	 */
 	private Updater() {
-		super("AliExpress Sales Updater");
+		super("AliExpress Sales Util");
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new FlowLayout());
 		addWindowFocusListener(this);
@@ -53,10 +48,10 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 
 		JTable table = new JTable(model);
 		TableColumnModel tcm = table.getColumnModel();
-		tcm.getColumn(0).setPreferredWidth(900);
-		tcm.getColumn(1).setPreferredWidth(1);
-		table.setRowSelectionAllowed(false);
-		table.setColumnSelectionAllowed(true);
+		tcm.getColumn(0).setPreferredWidth(1);
+		tcm.getColumn(1).setPreferredWidth(800);
+		tcm.getColumn(2).setPreferredWidth(30);
+		tcm.getColumn(3).setPreferredWidth(20);
 
 		JScrollPane tablePane = new JScrollPane(table);
 		tablePane.setPreferredSize(new Dimension(990, pasteArea.getPreferredSize().height));
@@ -65,65 +60,27 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 		pack();
 	}
 
-	/**
-	 * Shows the GUI and open TSV dialogue.
-	 */
-	private final void start() {
-		setVisible(true);
-
-		JFileChooser jfc = new JFileChooser(
-				FileSystemView.getFileSystemView().getDefaultDirectory().getAbsolutePath() + "/../Downloads");
-		jfc.setDialogTitle("Open Sales TSV");
-		jfc.setFileFilter(new FileNameExtensionFilter("Tab Seperated Value (tsv) file", "tsv"));
-
-		if (jfc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-			dispose();
-			return;
-		}
-
-		try {
-			Scanner scan = new Scanner(jfc.getSelectedFile()).useDelimiter("\t");
-			scan.nextLine();
-
-			ArrayList<Object[]> data = new ArrayList<>();
-			while (scan.hasNext()) {
-				Object[] prod = new Object[3];
-				String str = scan.next();
-
-				prod[0] = Long.parseLong(str.substring(str.lastIndexOf('/') + 1, str.lastIndexOf('.')));
-				prod[1] = scan.next();
-				for (byte n = 0; n < 3; n++)
-					scan.next();
-
-				prod[2] = scan.next();
-
-				scan.nextLine();
-				data.add(prod);
-			}
-
-			scan.close();
-			model.setData(data.toArray(new Object[data.size()][]));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-	}
-
 	@Override
 	public void insertUpdate(DocumentEvent e) {
 		Document doc = e.getDocument();
 		try {
 			Elements els = Jsoup.parse(doc.getText(0, doc.getLength())).getElementsByAttribute("data-product-id");
 			els.forEach(el -> {
-				Elements disEls = el.getElementsByClass("product-discount");
-				long tarId = Long.parseLong(el.attr("data-product-id"));
-				for (short r = 0; r < model.data.length; r++)
-					if ((long) model.data[r][0] == tarId) {
-						model.data[r][1] = "█ " + (String) model.data[r][1];
-						model.data[r][2] = disEls.size() > 0 ? disEls.get(0).text() + '%' : "0%";
-						model.fireTableRowsUpdated(r, r);
-						return;
-					}
+				Elements diss = el.getElementsByClass("product-discount");
+				String price, discount;
+				if (diss.size() > 0) {
+					price = el.getElementsByClass("old-price").get(0).text();
+					discount = el.getElementsByClass("product-discount").get(0).text();
+				} else {
+					price = el.getElementsByClass("price").get(0).text();
+					discount = "0";
+				}
+				int dol = price.lastIndexOf('$'), end = price.indexOf(' ', dol);
+				model.data.add(new Object[] { "aliexpress.com/item/" + el.attr("data-product-id") + ".html",
+						el.getElementsByTag("h3").get(0).getAllElements().get(0).text(),
+						price.substring(dol, end > dol ? end : price.length()), discount + '%' });
 			});
+			model.fireTableRowsInserted(model.getRowCount() - els.size(), model.getRowCount());
 		} catch (BadLocationException e1) {
 			e1.printStackTrace();
 		}
@@ -148,12 +105,12 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 	}
 
 	/**
-	 * Constructs and starts a new {@link Updater} instance.
+	 * Constructs and shows a new {@link Updater} instance.
 	 * 
 	 * @param args Ignored.
 	 */
 	public static void main(String[] args) {
-		SwingUtilities.invokeLater(() -> new Updater().start());
+		SwingUtilities.invokeLater(() -> new Updater().setVisible(true));
 	}
 
 	/**
@@ -166,22 +123,21 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 
 		private static final long serialVersionUID = 1L;
 
-		private static final String[] COL_NAMES = { "Name", "% Off" };
-		private Object[][] data = {};
+		private static final String[] COL_NAMES = { "URL", "Name", "~$", "% Off" };
+		private ArrayList<Object[]> data = new ArrayList<>();
 
-		/**
-		 * Stores incoming data and calls {@link #fireTableDataChanged()}.
-		 * 
-		 * @param newData The new data to store.
-		 */
-		private final void setData(Object[][] newData) {
-			data = newData;
-			fireTableDataChanged();
-		}
+//		private TableModel() {
+//			data.add(new Object[] { "aliexpress.com/item/3256803421363559.html",
+//					"Dakimakura Sexy Pillow Case Anime Fate Series Double-sided Print Cute Naked Girl Otaku Body Pillowcase Body Decor Cushion Cover",
+//					"$35.90", "32%" });
+//			data.add(new Object[] { "aliexpress.com/item/3256803429694590.html",
+//					"Dakimakura Sexy Pillow Cover Anime FATE series Double-sided Print Covers Cute Naked Girl Body Pillowcase Otaku Body Pillow Case",
+//					"$35.90", "32%" });
+//		}
 
 		@Override
 		public int getRowCount() {
-			return data.length;
+			return data.size();
 		}
 
 		@Override
@@ -191,7 +147,7 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 
 		@Override
 		public Object getValueAt(int rowIndex, int columnIndex) {
-			return data[rowIndex][columnIndex + 1];
+			return data.get(rowIndex)[columnIndex];
 		}
 
 		@Override
