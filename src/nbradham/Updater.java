@@ -126,15 +126,6 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 		private static final String[] COL_NAMES = { "URL", "Name", "~$", "% Off" };
 		private ArrayList<Object[]> data = new ArrayList<>();
 
-//		private TableModel() {
-//			data.add(new Object[] { "aliexpress.com/item/3256803421363559.html",
-//					"Dakimakura Sexy Pillow Case Anime Fate Series Double-sided Print Cute Naked Girl Otaku Body Pillowcase Body Decor Cushion Cover",
-//					"$35.90", "32%" });
-//			data.add(new Object[] { "aliexpress.com/item/3256803429694590.html",
-//					"Dakimakura Sexy Pillow Cover Anime FATE series Double-sided Print Covers Cute Naked Girl Body Pillowcase Otaku Body Pillow Case",
-//					"$35.90", "32%" });
-//		}
-
 		@Override
 		public int getRowCount() {
 			return data.size();
