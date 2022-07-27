@@ -127,7 +127,7 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 						max = Float.parseFloat(price.substring(dol, end > dol ? end : price.length()));
 				model.data.add(new Object[] { "aliexpress.com/item/" + el.attr("data-product-id") + ".html",
 						el.getElementsByTag("h3").get(0).getAllElements().get(0).text(),
-						String.format("%.2f", min + (max - min) * priceShift), discount + '%' });
+						String.format("$%.2f", min + (max - min) * priceShift), discount + '%' });
 			});
 			model.fireTableRowsInserted(model.getRowCount() - els.size(), model.getRowCount());
 		} catch (BadLocationException e1) {
