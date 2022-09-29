@@ -3,21 +3,15 @@ package nbradham;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
 import java.util.ArrayList;
 
-import javax.swing.ButtonGroup;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
-import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.AbstractTableModel;
@@ -34,14 +28,12 @@ import org.jsoup.select.Elements;
  * @author Nickolas S. Bradham
  *
  */
-public final class Updater extends JFrame implements DocumentListener, WindowFocusListener, ActionListener {
+public final class Updater extends JFrame implements DocumentListener, WindowFocusListener {
 
 	private static final long serialVersionUID = 1L;
 
-	private final JTextArea pasteArea = new JTextArea("Paste Wishlist source code here.", 40, 21);
+	private final JTextArea pasteArea = new JTextArea("Paste Wishlist source code here.", 45, 21);
 	private final TableModel model = new TableModel();
-
-	private float priceShift = 1;
 
 	/**
 	 * Constructs the GUI.
@@ -56,78 +48,34 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 
 		gbc.gridx = 0;
 		gbc.gridy = 0;
-		JPanel panel = new JPanel();
-		panel.setBorder(new TitledBorder("Price Selection for Range"));
-		ButtonGroup priceGroup = new ButtonGroup();
-		panel.add(createRadioButton("Minimum", "0", priceGroup));
-		panel.add(createRadioButton("1/2", ".5", priceGroup));
-		JRadioButton button = createRadioButton("Maximum", "1", priceGroup);
-		button.setSelected(true);
-		panel.add(button);
-		add(panel, gbc);
-
-		gbc.gridy = 1;
 		pasteArea.getDocument().addDocumentListener(this);
 		add(new JScrollPane(pasteArea), gbc);
 
 		gbc.gridx = 1;
 		gbc.gridy = 0;
-		gbc.gridheight = 2;
 		JTable table = new JTable(model);
 		TableColumnModel tcm = table.getColumnModel();
-		tcm.getColumn(0).setPreferredWidth(1);
-		tcm.getColumn(1).setPreferredWidth(800);
-		tcm.getColumn(2).setPreferredWidth(30);
-		tcm.getColumn(3).setPreferredWidth(20);
+		tcm.getColumn(0).setPreferredWidth(900);
+		tcm.getColumn(1).setPreferredWidth(1);
 
 		JScrollPane tablePane = new JScrollPane(table);
-		tablePane.setPreferredSize(
-				new Dimension(990, pasteArea.getPreferredSize().height + panel.getPreferredSize().height));
+		tablePane.setPreferredSize(new Dimension(990, pasteArea.getPreferredSize().height));
 		add(tablePane, gbc);
 
 		pack();
-	}
-
-	/**
-	 * Creates a new JRadioButton, sets the label and action command, adds a action
-	 * listener, and adds it to the button group.
-	 * 
-	 * @param label   The label for the button.
-	 * @param command The action command of the button.
-	 * @param group   The ButtonGroup to add the button to.
-	 * @return The new JRadioButton instance.
-	 */
-	private JRadioButton createRadioButton(String label, String command, ButtonGroup group) {
-		JRadioButton button = new JRadioButton(label);
-		button.setActionCommand(command);
-		button.addActionListener(this);
-		group.add(button);
-		return button;
 	}
 
 	@Override
 	public void insertUpdate(DocumentEvent e) {
 		Document doc = e.getDocument();
 		try {
-			Elements els = Jsoup.parse(doc.getText(0, doc.getLength())).getElementsByAttribute("data-product-id");
+			Elements els = Jsoup.parse(doc.getText(0, doc.getLength()))
+					.getElementsByClass("AllListItem--rightContainer--2AiihCN");
 			els.forEach(el -> {
-				Elements diss = el.getElementsByClass("product-discount");
-				String price, discount;
-				if (diss.size() > 0) {
-					price = el.getElementsByClass("old-price").get(0).text();
-					discount = el.getElementsByClass("product-discount").get(0).text();
-				} else {
-					price = el.getElementsByClass("price").get(0).text();
-					discount = "0";
-				}
-				int firstDol = price.indexOf('$') + 1, firstEnd = price.indexOf(' ', firstDol),
-						dol = price.lastIndexOf('$') + 1, end = price.indexOf(' ', dol);
-				float min = Float
-						.parseFloat(price.substring(firstDol, firstEnd > firstDol ? firstEnd : price.length())),
-						max = Float.parseFloat(price.substring(dol, end > dol ? end : price.length()));
-				model.data.add(new Object[] { "aliexpress.com/item/" + el.attr("data-product-id") + ".html",
-						el.getElementsByTag("h3").get(0).getAllElements().get(0).text(),
-						String.format("$%.2f", min + (max - min) * priceShift), discount + '%' });
+				String price = el.getElementsByClass("AllListItem--priceNowText--24hulSy").get(0).text();
+				model.data.add(new Object[] {
+						el.getElementsByClass("AllListItem--productNameText--3aZEYzK ellipse").get(0).text(),
+						price.substring(price.indexOf('$')) });
 			});
 			model.fireTableRowsInserted(model.getRowCount() - els.size(), model.getRowCount());
 		} catch (BadLocationException e1) {
@@ -154,11 +102,6 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 	public void changedUpdate(DocumentEvent e) {
 	}
 
-	@Override
-	public void actionPerformed(ActionEvent e) {
-		priceShift = Float.parseFloat(e.getActionCommand());
-	}
-
 	/**
 	 * Constructs and shows a new {@link Updater} instance.
 	 * 
@@ -178,7 +121,7 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 
 		private static final long serialVersionUID = 1L;
 
-		private static final String[] COL_NAMES = { "URL", "Name", "~$", "% Off" };
+		private static final String[] COL_NAMES = { "Name", "~$" };
 		private ArrayList<Object[]> data = new ArrayList<>();
 
 		@Override
