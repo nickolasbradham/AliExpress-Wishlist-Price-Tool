@@ -8,6 +8,7 @@ import java.awt.event.WindowFocusListener;
 import java.util.ArrayList;
 
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
@@ -72,12 +73,16 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 			Elements els = Jsoup.parse(doc.getText(0, doc.getLength()))
 					.getElementsByClass("AllListItem--rightContainer--2AiihCN");
 			els.forEach(el -> {
-				String price = el.getElementsByClass("AllListItem--priceNowText--24hulSy").get(0).text();
-				model.data.add(new Object[] {
-						el.getElementsByClass("AllListItem--productNameText--3aZEYzK ellipse").get(0).text(),
-						price.substring(price.indexOf('$')) });
+				String price = el.getElementsByClass("AllListItem--priceNowText--24hulSy").get(0).text(),
+						name = el.getElementsByClass("AllListItem--productNameText--3aZEYzK ellipse").get(0).text();
+				if (price.isBlank())
+					JOptionPane.showMessageDialog(this, "Could not retrieve price for: " + name, "Data Not Found Error",
+							JOptionPane.ERROR_MESSAGE);
+				else
+					model.data.add(new Object[] { name, price.substring(price.indexOf('$')) });
 			});
-			model.fireTableRowsInserted(model.getRowCount() - els.size(), model.getRowCount());
+			int rows = model.getRowCount();
+			model.fireTableRowsInserted(rows - Math.min(rows, els.size()), rows);
 		} catch (BadLocationException e1) {
 			e1.printStackTrace();
 		}
