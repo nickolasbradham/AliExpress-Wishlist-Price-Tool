@@ -1,23 +1,20 @@
 package nbradham;
 
 import java.awt.Dimension;
-import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Scanner;
 
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.filechooser.FileSystemView;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumnModel;
 import javax.swing.text.BadLocationException;
@@ -32,102 +29,69 @@ import org.jsoup.select.Elements;
  * @author Nickolas S. Bradham
  *
  */
-final class Updater extends JFrame implements DocumentListener, WindowFocusListener {
+public final class Updater extends JFrame implements DocumentListener, WindowFocusListener {
 
 	private static final long serialVersionUID = 1L;
 
-	private final JTextArea pasteArea = new JTextArea("Paste Wishlist source code here.", 45, 30);
+	private final JTextArea pasteArea = new JTextArea("Paste Wishlist source code here.", 45, 21);
 	private final TableModel model = new TableModel();
 
 	/**
 	 * Constructs the GUI.
 	 */
 	private Updater() {
-		super("AliExpress Sales Updater");
+		super("AliExpress Sales Util");
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setLayout(new FlowLayout());
+		setLayout(new GridBagLayout());
 		addWindowFocusListener(this);
 
-		pasteArea.getDocument().addDocumentListener(this);
-		add(new JScrollPane(pasteArea));
+		GridBagConstraints gbc = new GridBagConstraints();
 
+		gbc.gridx = 0;
+		gbc.gridy = 0;
+		pasteArea.getDocument().addDocumentListener(this);
+		add(new JScrollPane(pasteArea), gbc);
+
+		gbc.gridx = 1;
+		gbc.gridy = 0;
 		JTable table = new JTable(model);
 		TableColumnModel tcm = table.getColumnModel();
 		tcm.getColumn(0).setPreferredWidth(900);
 		tcm.getColumn(1).setPreferredWidth(1);
-		table.setRowSelectionAllowed(false);
-		table.setColumnSelectionAllowed(true);
 
 		JScrollPane tablePane = new JScrollPane(table);
 		tablePane.setPreferredSize(new Dimension(990, pasteArea.getPreferredSize().height));
-		add(tablePane);
+		add(tablePane, gbc);
 
 		pack();
 	}
 
-	/**
-	 * Shows the GUI and open TSV dialogue.
-	 */
-	private final void start() {
-		setVisible(true);
-
-		JFileChooser jfc = new JFileChooser(
-				FileSystemView.getFileSystemView().getDefaultDirectory().getAbsolutePath() + "/../Downloads");
-		jfc.setDialogTitle("Open Sales TSV");
-		jfc.setFileFilter(new FileNameExtensionFilter("Tab Seperated Value (tsv) file", "tsv"));
-
-		if (jfc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-			dispose();
-			return;
-		}
-
-		try {
-			Scanner scan = new Scanner(jfc.getSelectedFile()).useDelimiter("\t");
-			scan.nextLine();
-
-			ArrayList<Object[]> data = new ArrayList<>();
-			while (scan.hasNext()) {
-				Object[] prod = new Object[3];
-				String str = scan.next();
-
-				prod[0] = Long.parseLong(str.substring(str.lastIndexOf('/') + 1, str.lastIndexOf('.')));
-				prod[1] = scan.next();
-				for (byte n = 0; n < 3; n++)
-					scan.next();
-
-				str = scan.next();
-				prod[2] = Byte.parseByte(str.substring(0, str.length() - 1));
-
-				scan.nextLine();
-				data.add(prod);
-			}
-
-			scan.close();
-			model.setData(data.toArray(new Object[data.size()][]));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-	}
-
 	@Override
 	public void insertUpdate(DocumentEvent e) {
-		System.out.println("Parsing...");
 		Document doc = e.getDocument();
 		try {
-			Elements els = Jsoup.parse(doc.getText(0, doc.getLength())).getElementsByAttribute("data-product-id");
+			Elements els = Jsoup.parse(doc.getText(0, doc.getLength()))
+					.getElementsByClass("AllListItem--rightContainer--2AiihCN");
 			els.forEach(el -> {
-				Elements disEls = el.getElementsByClass("product-discount");
-				long tarId = Long.parseLong(el.attr("data-product-id"));
-				for (short r = 0; r < model.data.length; r++)
-					if ((long) model.data[r][0] == tarId) {
-						model.data[r][1] = "█ " + (String) model.data[r][1];
-						model.data[r][2] = disEls.size() > 0 ? Byte.parseByte(disEls.get(0).text()) : 0;
-						model.fireTableRowsUpdated(r, r);
-						System.out.print('.');
-						return;
-					}
+				String price = el.getElementsByClass("AllListItem--priceNowText--24hulSy").get(0).text(),
+						name = el.getElementsByClass("AllListItem--productNameText--3aZEYzK ellipse").get(0).text();
+				if (price.isBlank())
+					JOptionPane.showMessageDialog(this, "Could not retrieve price for: " + name, "Data Not Found Error",
+							JOptionPane.ERROR_MESSAGE);
+				else {
+					price = price.substring(price.indexOf('$'));
+					boolean isNew = true;
+					for (String[] r : model.data)
+						if (r[0].equals(name) && r[1].equals(price)) {
+							isNew = false;
+							break;
+						}
+					if (isNew)
+						model.data.add(new String[] { name, price });
+				}
 			});
-			System.out.println();
+			int rows = model.getRowCount();
+			model.fireTableRowsInserted(rows - Math.min(rows, els.size()), rows);
 		} catch (BadLocationException e1) {
 			e1.printStackTrace();
 		}
@@ -135,6 +99,7 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 
 	@Override
 	public void windowGainedFocus(WindowEvent e) {
+		pasteArea.requestFocus();
 		pasteArea.setSelectionStart(0);
 		pasteArea.setSelectionEnd(Integer.MAX_VALUE);
 	}
@@ -152,12 +117,12 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 	}
 
 	/**
-	 * Constructs and starts a new {@link Updater} instance.
+	 * Constructs and shows a new {@link Updater} instance.
 	 * 
 	 * @param args Ignored.
 	 */
 	public static void main(String[] args) {
-		SwingUtilities.invokeLater(() -> new Updater().start());
+		SwingUtilities.invokeLater(() -> new Updater().setVisible(true));
 	}
 
 	/**
@@ -170,22 +135,12 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 
 		private static final long serialVersionUID = 1L;
 
-		private static final String[] COL_NAMES = { "Name", "% Off" };
-		private Object[][] data = {};
-
-		/**
-		 * Stores incoming data and calls {@link #fireTableDataChanged()}.
-		 * 
-		 * @param newData The new data to store.
-		 */
-		private final void setData(Object[][] newData) {
-			data = newData;
-			fireTableDataChanged();
-		}
+		private static final String[] COL_NAMES = { "Name", "~$" };
+		private ArrayList<String[]> data = new ArrayList<>();
 
 		@Override
 		public int getRowCount() {
-			return data.length;
+			return data.size();
 		}
 
 		@Override
@@ -194,8 +149,8 @@ final class Updater extends JFrame implements DocumentListener, WindowFocusListe
 		}
 
 		@Override
-		public Object getValueAt(int rowIndex, int columnIndex) {
-			return data[rowIndex][columnIndex + 1];
+		public String getValueAt(int rowIndex, int columnIndex) {
+			return data.get(rowIndex)[columnIndex];
 		}
 
 		@Override
