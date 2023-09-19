@@ -78,8 +78,17 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 				if (price.isBlank())
 					JOptionPane.showMessageDialog(this, "Could not retrieve price for: " + name, "Data Not Found Error",
 							JOptionPane.ERROR_MESSAGE);
-				else
-					model.data.add(new Object[] { name, price.substring(price.indexOf('$')) });
+				else {
+					price = price.substring(price.indexOf('$'));
+					boolean isNew = true;
+					for (String[] r : model.data)
+						if (r[0].equals(name) && r[1].equals(price)) {
+							isNew = false;
+							break;
+						}
+					if (isNew)
+						model.data.add(new String[] { name, price });
+				}
 			});
 			int rows = model.getRowCount();
 			model.fireTableRowsInserted(rows - Math.min(rows, els.size()), rows);
@@ -127,7 +136,7 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 		private static final long serialVersionUID = 1L;
 
 		private static final String[] COL_NAMES = { "Name", "~$" };
-		private ArrayList<Object[]> data = new ArrayList<>();
+		private ArrayList<String[]> data = new ArrayList<>();
 
 		@Override
 		public int getRowCount() {
@@ -140,7 +149,7 @@ public final class Updater extends JFrame implements DocumentListener, WindowFoc
 		}
 
 		@Override
-		public Object getValueAt(int rowIndex, int columnIndex) {
+		public String getValueAt(int rowIndex, int columnIndex) {
 			return data.get(rowIndex)[columnIndex];
 		}
 
